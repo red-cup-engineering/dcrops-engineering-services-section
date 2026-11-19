@@ -1,0 +1,45 @@
+{
+  "name": "@red-cup-engineering/dcrops-engineering-services-section",
+  "version": "0.1.5-dev.0",
+  "type": "module",
+  "description": "dCrops NFT-instance observation (land, seed, season) and pure single-plot action planning (plant / harvest / remove-expired / wait), producing unsigned custom_json intents only.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/red-cup-engineering/dcrops-engineering-services-section.git"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "check": "for f in src/*.mjs; do node --check \"$f\" || exit 1; done"
+  },
+  "exports": {
+    ".": "./src/dcrops.mjs",
+    "./dcrops": {
+      "default": "./src/dcrops.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "keywords": [
+    "hive",
+    "hive-engine",
+    "dcrops",
+    "sovereign-state-enterprise"
+  ],
+  "dependencies": {
+    "@red-cup-engineering/hive-blockchain-client-service": "^0.1.6"
+  },
+  "private": false,
+  "files": [
+    "package.json",
+    "README*",
+    "LICENSE*",
+    "src"
+  ],
+  "license": "MIT",
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/561-group/.github/blob/main/TIPS.md"
+  }
+}
