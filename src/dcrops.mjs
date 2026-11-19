@@ -96,12 +96,12 @@ export function parseDCropsLand(value, expectedAccount) {
   if (!Array.isArray(plots) || !Array.isArray(timestamps) || plots.length === 0 || plots.length !== timestamps.length) {
     throw new Error("dCrops land plots and timestamps must be equal nonempty arrays");
   }
-  const admittedPlots = plots.map((plot) => {
+  const validatedPlots = plots.map((plot) => {
     if (typeof plot !== "string") throw new Error("dCrops plot crop must be text");
     return plot;
   });
   const plantedAtUnix = timestamps.map((timestamp, index) => {
-    if (admittedPlots[index] === "") {
+    if (validatedPlots[index] === "") {
       if (timestamp !== "") throw new Error("dCrops empty plot must have an empty timestamp");
       return null;
     }
@@ -112,7 +112,7 @@ export function parseDCropsLand(value, expectedAccount) {
     id: instance._id,
     account: instance.account,
     name: instance.properties["name"] ?? "",
-    plots: Object.freeze(admittedPlots),
+    plots: Object.freeze(validatedPlots),
     plantedAtUnix: Object.freeze(plantedAtUnix),
   });
 }
@@ -138,12 +138,12 @@ export function parseDCropsSeed(value, expectedAccount) {
 }
 
 function customJsonIntent(account, body) {
-  const admittedAccount = accountName(account);
+  const validatedAccount = accountName(account);
   return Object.freeze({
     role: "active",
     approvedForBroadcast: false,
     operation: Object.freeze(["custom_json", Object.freeze({
-      required_auths: Object.freeze([admittedAccount]),
+      required_auths: Object.freeze([validatedAccount]),
       required_posting_auths: Object.freeze([]),
       id: "dcrops",
       json: JSON.stringify(body),
@@ -164,10 +164,10 @@ export function dcropsPlantIntent(account, landID, seedID, plotNo) {
 }
 
 export function planDCropsPlot(account, season, land, seed, plotNo, nowUnix = Math.trunc(Date.now() / 1000)) {
-  const admittedAccount = accountName(account);
+  const validatedAccount = accountName(account);
   const plot = integer(plotNo, "plot number");
   const now = integer(nowUnix, "observation timestamp", 1);
-  if (land.account !== admittedAccount || seed.account !== admittedAccount) {
+  if (land.account !== validatedAccount || seed.account !== validatedAccount) {
     return Object.freeze({ kind: "refuse", reason: "land and seed must both be owned by the acting account" });
   }
   if (plot >= land.plots.length) return Object.freeze({ kind: "refuse", reason: "plot number is outside the observed land" });
@@ -182,12 +182,12 @@ export function planDCropsPlot(account, season, land, seed, plotNo, nowUnix = Ma
       return Object.freeze({
         kind: "remove-expired",
         reason: age >= HARVEST_EXPIRY_SECONDS ? "crop exceeded dCrops' 30-day harvest window" : "crop is not valid for the current selected seed and season",
-        intent: dcropsRemoveIntent(admittedAccount, land.id, plot),
+        intent: dcropsRemoveIntent(validatedAccount, land.id, plot),
       });
     }
     const matureAt = plantedAt + seed.growthDays * DAY;
     if (now >= matureAt) {
-      return Object.freeze({ kind: "harvest", reason: "crop is mature and still inside its harvest window", intent: dcropsHarvestIntent(admittedAccount, land.id, plot) });
+      return Object.freeze({ kind: "harvest", reason: "crop is mature and still inside its harvest window", intent: dcropsHarvestIntent(validatedAccount, land.id, plot) });
     }
     return Object.freeze({ kind: "wait", reason: "crop is still growing", nextEligibleAtUnix: matureAt });
   }
@@ -197,7 +197,7 @@ export function planDCropsPlot(account, season, land, seed, plotNo, nowUnix = Ma
   if (now <= seedReadyAt) return Object.freeze({ kind: "wait", reason: "seed is still in its 14-day cooldown", nextEligibleAtUnix: seedReadyAt + 1 });
   const matureAt = now + seed.growthDays * DAY;
   if (matureAt >= season.endsAtUnix) return Object.freeze({ kind: "refuse", reason: "seed cannot mature before the observed season ends" });
-  return Object.freeze({ kind: "plant", reason: "empty plot, eligible seed, and sufficient season time", intent: dcropsPlantIntent(admittedAccount, land.id, seed.id, plot) });
+  return Object.freeze({ kind: "plant", reason: "empty plot, eligible seed, and sufficient season time", intent: dcropsPlantIntent(validatedAccount, land.id, seed.id, plot) });
 }
 
 export function createDCropsClient(options = {}) {
@@ -205,16 +205,16 @@ export function createDCropsClient(options = {}) {
   if (nodes.length === 0) throw new Error("dCrops client requires at least one Hive-Engine node");
   const engine = new EngineClient({ nodes, timeout: 6000, ...(options.fetchImpl ? { fetch: options.fetchImpl } : {}) });
   async function readInstance(id) {
-    const admittedId = positiveId(id, "NFT id");
+    const validatedId = positiveId(id, "NFT id");
     let row;
     try {
-      row = await engine.findOne("nft", "DCROPSinstances", { _id: admittedId });
+      row = await engine.findOne("nft", "DCROPSinstances", { _id: validatedId });
     } catch (error) {
       throw new Error(`dCrops NFT read failed: ${error instanceof Error ? error.message : String(error)}`);
     }
-    if (!row) throw new Error(`dCrops NFT ${admittedId} was not found`);
+    if (!row) throw new Error(`dCrops NFT ${validatedId} was not found`);
     const parsed = parseDCropsInstance(row);
-    if (parsed._id !== admittedId) throw new Error("dCrops RPC returned the wrong NFT id");
+    if (parsed._id !== validatedId) throw new Error("dCrops RPC returned the wrong NFT id");
     return parsed;
   }
   return Object.freeze({ readInstance, async readSeason() { return parseDCropsSeason(await readInstance(1)); } });
